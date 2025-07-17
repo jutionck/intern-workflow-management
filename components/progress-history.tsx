@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Video, FileText, TrendingUp, Filter } from "lucide-react"
+import { progressService, ProgressEntry } from "@/services/progress.service"
 
 interface HistoryEntry {
   id: string
@@ -15,6 +16,7 @@ interface HistoryEntry {
   duration?: string
   score?: number
   totalQuestions?: number
+  studentName?: string
 }
 
 interface ProgressHistoryProps {
@@ -33,91 +35,31 @@ interface ProgressHistoryProps {
 export default function ProgressHistory({ selectedStudent, students }: ProgressHistoryProps) {
   const [filterType, setFilterType] = useState<string>("all")
   const [filterCategory, setFilterCategory] = useState<string>("all")
+  const [historyData, setHistoryData] = useState<ProgressEntry[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Mock history data
-  const historyData: HistoryEntry[] = [
-    {
-      id: "1",
-      date: "2025-01-17",
-      type: "quiz",
-      title: "JavaScript Fundamentals",
-      category: "frontend",
-      score: 9,
-      totalQuestions: 10,
-    },
-    {
-      id: "2",
-      date: "2025-01-17",
-      type: "video",
-      title: "React Components Deep Dive",
-      category: "frontend",
-      duration: "45 minutes",
-    },
-    {
-      id: "3",
-      date: "2025-01-17",
-      type: "quiz",
-      title: "HTML & CSS Basics",
-      category: "frontend",
-      score: 8,
-      totalQuestions: 10,
-    },
-    {
-      id: "4",
-      date: "2025-01-16",
-      type: "video",
-      title: "Node.js Introduction",
-      category: "backend",
-      duration: "60 minutes",
-    },
-    {
-      id: "5",
-      date: "2025-01-16",
-      type: "quiz",
-      title: "Database Fundamentals",
-      category: "database",
-      score: 7,
-      totalQuestions: 10,
-    },
-    {
-      id: "6",
-      date: "2025-01-15",
-      type: "video",
-      title: "Git Version Control",
-      category: "devops",
-      duration: "30 minutes",
-    },
-    {
-      id: "7",
-      date: "2025-01-15",
-      type: "quiz",
-      title: "UI/UX Principles",
-      category: "design",
-      score: 9,
-      totalQuestions: 12,
-    },
-  ]
+  useEffect(() => {
+    const fetchProgressData = async () => {
+      try {
+        setLoading(true)
+        const userId = selectedStudent === "all" ? undefined : selectedStudent
+        const response = await progressService.getProgressData(userId)
+        setHistoryData(response.progressData || [])
+      } catch (error) {
+        console.error('Failed to fetch progress data:', error)
+        setHistoryData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProgressData()
+  }, [selectedStudent])
 
   const currentStudent = selectedStudent === "all" ? null : students.find((s) => s.id === selectedStudent)
   const isAllStudents = selectedStudent === "all"
 
-  // Filter history data based on selected student
-  const getFilteredHistory = () => {
-    if (isAllStudents) {
-      // Return history for all students with student names
-      return historyData.map((entry) => ({
-        ...entry,
-        studentName: students[Math.floor(Math.random() * students.length)]?.name || "Unknown Student",
-      }))
-    } else {
-      // Return history for specific student
-      return historyData
-    }
-  }
-
-  const filteredHistoryData = getFilteredHistory()
-
-  const filteredHistory = filteredHistoryData.filter((entry) => {
+  const filteredHistory = historyData.filter((entry) => {
     const typeMatch = filterType === "all" || entry.type === filterType
     const categoryMatch = filterCategory === "all" || entry.category === filterCategory
     return typeMatch && categoryMatch
@@ -165,7 +107,6 @@ export default function ProgressHistory({ selectedStudent, students }: ProgressH
         </CardHeader>
       </Card>
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -207,14 +148,16 @@ export default function ProgressHistory({ selectedStudent, students }: ProgressH
         </CardContent>
       </Card>
 
-      {/* History List */}
       <Card>
         <CardHeader>
           <CardTitle>Activity History</CardTitle>
           <CardDescription>Showing {filteredHistory.length} activities</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          {loading ? (
+            <div className="text-center py-8">Loading...</div>
+          ) : (
+            <div className="space-y-4">
             {filteredHistory.map((entry) => (
               <div key={entry.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                 <div className="flex items-center space-x-4">
@@ -260,11 +203,11 @@ export default function ProgressHistory({ selectedStudent, students }: ProgressH
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">

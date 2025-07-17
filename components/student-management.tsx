@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,37 +37,94 @@ export default function StudentManagement({ students: initialStudents }: Student
   const [students, setStudents] = useState<Student[]>(initialStudents)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
+  const [departments, setDepartments] = useState<string[]>([])
+  const [supervisors, setSupervisors] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    email: string
+    department: string
+    supervisor: string
+    status: "active" | "inactive" | "completed"
+  }>({
     name: "",
     email: "",
     department: "",
     supervisor: "",
-    status: "active" as const,
+    status: "active",
   })
 
-  const departments = [
-    "Frontend Development",
-    "Backend Development",
-    "Full Stack Development",
-    "UI/UX Design",
-    "Database",
-    "DevOps",
-    "Mobile Development",
-    "Data Science",
-    "Quality Assurance",
-  ]
+  // Load departments and supervisors from API
+  useEffect(() => {
+    const loadDropdownData = async () => {
+      try {
+        // Load departments
+        const deptResponse = await fetch('/api/departments')
+        if (deptResponse.ok) {
+          const deptData = await deptResponse.json()
+          setDepartments(deptData.departments || [])
+        } else {
+          // Fallback departments if API fails
+          setDepartments([
+            "Frontend Development",
+            "Backend Development", 
+            "Full Stack Development",
+            "UI/UX Design",
+            "Database",
+            "DevOps",
+            "Mobile Development",
+            "Data Science",
+            "Quality Assurance",
+          ])
+        }
 
-  const supervisors = [
-    "Sarah Johnson",
-    "Mike Davis",
-    "Emily Chen",
-    "John Smith",
-    "Lisa Wang",
-    "David Brown",
-    "Anna Martinez",
-  ]
+        // Load supervisors
+        const supervResponse = await fetch('/api/supervisors')
+        if (supervResponse.ok) {
+          const supervData = await supervResponse.json()
+          setSupervisors(supervData.supervisors || [])
+        } else {
+          // Fallback supervisors if API fails
+          setSupervisors([
+            "Sarah Johnson",
+            "Mike Davis", 
+            "Emily Chen",
+            "John Smith",
+            "Lisa Wang",
+            "David Brown",
+            "Anna Martinez",
+          ])
+        }
+      } catch (error) {
+        console.error('Failed to load dropdown data:', error)
+        // Set fallback data
+        setDepartments([
+          "Frontend Development",
+          "Backend Development",
+          "Full Stack Development", 
+          "UI/UX Design",
+          "Database",
+          "DevOps",
+          "Mobile Development",
+          "Data Science",
+          "Quality Assurance",
+        ])
+        setSupervisors([
+          "Sarah Johnson",
+          "Mike Davis",
+          "Emily Chen", 
+          "John Smith",
+          "Lisa Wang",
+          "David Brown",
+          "Anna Martinez",
+        ])
+      }
+    }
+
+    loadDropdownData()
+  }, [])
 
   const resetForm = () => {
     setFormData({
@@ -79,7 +136,7 @@ export default function StudentManagement({ students: initialStudents }: Student
     })
   }
 
-  const handleAddStudent = () => {
+  const handleAddStudent = async () => {
     if (!formData.name || !formData.email || !formData.department || !formData.supervisor) {
       toast({
         title: "Error",
@@ -89,24 +146,54 @@ export default function StudentManagement({ students: initialStudents }: Student
       return
     }
 
-    const newStudent: Student = {
-      id: Date.now().toString(),
-      name: formData.name,
-      email: formData.email,
-      department: formData.department,
-      supervisor: formData.supervisor,
-      status: formData.status,
-      startDate: new Date().toISOString().split("T")[0],
+    setLoading(true)
+
+    try {
+      const newStudentData = {
+        name: formData.name,
+        email: formData.email,
+        department: formData.department,
+        supervisor: formData.supervisor,
+        status: formData.status,
+        startDate: new Date().toISOString().split("T")[0],
+      }
+
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newStudentData),
+      })
+
+      if (response.ok) {
+        const createdStudent = await response.json()
+        setStudents([...students, createdStudent])
+        resetForm()
+        setIsAddDialogOpen(false)
+
+        toast({
+          title: "Student Added",
+          description: `${createdStudent.name} has been added successfully.`,
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.message || "Failed to add student.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error adding student:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add student. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    setStudents([...students, newStudent])
-    resetForm()
-    setIsAddDialogOpen(false)
-
-    toast({
-      title: "Student Added",
-      description: `${newStudent.name} has been added successfully.`,
-    })
   }
 
   const handleEditStudent = (student: Student) => {
@@ -120,31 +207,93 @@ export default function StudentManagement({ students: initialStudents }: Student
     })
   }
 
-  const handleUpdateStudent = () => {
+  const handleUpdateStudent = async () => {
     if (!editingStudent) return
 
-    const updatedStudents = students.map((student) =>
-      student.id === editingStudent.id ? { ...student, ...formData } : student,
-    )
+    setLoading(true)
 
-    setStudents(updatedStudents)
-    setEditingStudent(null)
-    resetForm()
+    try {
+      const updateData = {
+        name: formData.name,
+        email: formData.email,
+        department: formData.department,
+        supervisor: formData.supervisor,
+        status: formData.status,
+      }
 
-    toast({
-      title: "Student Updated",
-      description: `${formData.name}'s information has been updated.`,
-    })
+      const response = await fetch(`/api/students/${editingStudent.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (response.ok) {
+        const updatedStudent = await response.json()
+        const updatedStudents = students.map((student) =>
+          student.id === editingStudent.id ? updatedStudent : student,
+        )
+
+        setStudents(updatedStudents)
+        setEditingStudent(null)
+        resetForm()
+
+        toast({
+          title: "Student Updated",
+          description: `${updatedStudent.name}'s information has been updated.`,
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error", 
+          description: error.message || "Failed to update student.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error updating student:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update student. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeleteStudent = (studentId: string) => {
+  const handleDeleteStudent = async (studentId: string) => {
     const student = students.find((s) => s.id === studentId)
-    setStudents(students.filter((s) => s.id !== studentId))
+    
+    try {
+      const response = await fetch(`/api/students/${studentId}`, {
+        method: 'DELETE',
+      })
 
-    toast({
-      title: "Student Removed",
-      description: `${student?.name} has been removed from the system.`,
-    })
+      if (response.ok) {
+        setStudents(students.filter((s) => s.id !== studentId))
+
+        toast({
+          title: "Student Removed",
+          description: `${student?.name} has been removed from the system.`,
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete student.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting student:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -267,7 +416,16 @@ export default function StudentManagement({ students: initialStudents }: Student
                     <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handleAddStudent}>Add Student</Button>
+                    <Button onClick={handleAddStudent} disabled={loading}>
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Adding...
+                        </>
+                      ) : (
+                        "Add Student"
+                      )}
+                    </Button>
                   </div>
                 </div>
               </DialogContent>
@@ -408,7 +566,16 @@ export default function StudentManagement({ students: initialStudents }: Student
                             <Button variant="outline" onClick={() => setEditingStudent(null)}>
                               Cancel
                             </Button>
-                            <Button onClick={handleUpdateStudent}>Update Student</Button>
+                            <Button onClick={handleUpdateStudent} disabled={loading}>
+                              {loading ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Updating...
+                                </>
+                              ) : (
+                                "Update Student"
+                              )}
+                            </Button>
                           </div>
                         </div>
                       </DialogContent>

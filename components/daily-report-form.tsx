@@ -1,15 +1,22 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, X, Save } from "lucide-react"
+import { Calendar, Clock, Video, FileText, Plus, Trash2, X, Save } from "lucide-react"
+import { dailyReportService, VideoEntry as ServiceVideoEntry, QuizEntry as ServiceQuizEntry } from "@/services/daily-report.service"
 import { useToast } from "@/hooks/use-toast"
+
+interface Category {
+  id: string
+  name: string
+  value: string
+}
 
 interface VideoEntry {
   id: string
@@ -44,17 +51,56 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
   const [videos, setVideos] = useState<VideoEntry[]>([])
   const [quizzes, setQuizzes] = useState<QuizEntry[]>([])
   const [notes, setNotes] = useState("")
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Video form state
   const [videoTitle, setVideoTitle] = useState("")
   const [videoDuration, setVideoDuration] = useState("")
   const [videoCategory, setVideoCategory] = useState("")
 
-  // Quiz form state
   const [quizTitle, setQuizTitle] = useState("")
   const [quizScore, setQuizScore] = useState("")
   const [quizTotal, setQuizTotal] = useState("")
   const [quizCategory, setQuizCategory] = useState("")
+
+  // Load categories from API
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch('/api/categories')
+        if (response.ok) {
+          const data = await response.json()
+          setCategories(data.categories || [])
+        } else {
+          // Fallback categories if API fails
+          setCategories([
+            { id: '1', name: 'Frontend Development', value: 'frontend' },
+            { id: '2', name: 'Backend Development', value: 'backend' },
+            { id: '3', name: 'Database', value: 'database' },
+            { id: '4', name: 'DevOps', value: 'devops' },
+            { id: '5', name: 'UI/UX Design', value: 'design' },
+            { id: '6', name: 'Other', value: 'other' }
+          ])
+        }
+      } catch (error) {
+        console.error('Failed to load categories:', error)
+        // Set fallback categories
+        setCategories([
+          { id: '1', name: 'Frontend Development', value: 'frontend' },
+          { id: '2', name: 'Backend Development', value: 'backend' },
+          { id: '3', name: 'Database', value: 'database' },
+          { id: '4', name: 'DevOps', value: 'devops' },
+          { id: '5', name: 'UI/UX Design', value: 'design' },
+          { id: '6', name: 'Other', value: 'other' }
+        ])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadCategories()
+  }, [])
 
   const currentStudent = selectedStudent === "all" ? null : students.find((s) => s.id === selectedStudent)
   const isAllStudents = selectedStudent === "all"
@@ -67,6 +113,11 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
         </CardContent>
       </Card>
     )
+  }
+
+  const getCategoryName = (value: string) => {
+    const category = categories.find(cat => cat.value === value)
+    return category ? category.name : value
   }
 
   const addVideo = () => {
@@ -109,17 +160,42 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
     setQuizzes(quizzes.filter((q) => q.id !== id))
   }
 
-  const submitReport = () => {
-    // Here you would typically send the data to your backend
-    toast({
-      title: "Report Submitted",
-      description: "Your daily report has been saved successfully.",
-    })
+  const submitReport = async () => {
+    try {
+      const videoEntries: ServiceVideoEntry[] = videos.map(v => ({
+        title: v.title,
+        duration: v.duration,
+        category: v.category
+      }))
 
-    // Reset form
-    setVideos([])
-    setQuizzes([])
-    setNotes("")
+      const quizEntries: ServiceQuizEntry[] = quizzes.map(q => ({
+        title: q.title,
+        score: q.score,
+        totalQuestions: q.totalQuestions,
+        category: q.category
+      }))
+
+      await dailyReportService.createDailyReport({
+        notes,
+        videoEntries,
+        quizEntries
+      })
+
+      toast({
+        title: "Report Submitted",
+        description: "Your daily report has been saved successfully.",
+      })
+
+      setVideos([])
+      setQuizzes([])
+      setNotes("")
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to submit report. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
   return (
@@ -134,7 +210,6 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
         </CardHeader>
       </Card>
 
-      {/* Videos Section */}
       <Card>
         <CardHeader>
           <CardTitle>Videos Watched</CardTitle>
@@ -162,17 +237,16 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
             </div>
             <div>
               <Label htmlFor="video-category">Category</Label>
-              <Select value={videoCategory} onValueChange={setVideoCategory}>
+              <Select value={videoCategory} onValueChange={setVideoCategory} disabled={loading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={loading ? "Loading categories..." : "Select category"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="frontend">Frontend Development</SelectItem>
-                  <SelectItem value="backend">Backend Development</SelectItem>
-                  <SelectItem value="database">Database</SelectItem>
-                  <SelectItem value="devops">DevOps</SelectItem>
-                  <SelectItem value="design">UI/UX Design</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.value}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -192,7 +266,7 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
                   <div className="flex-1">
                     <p className="font-medium">{video.title}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline">{video.category}</Badge>
+                      <Badge variant="outline">{getCategoryName(video.category)}</Badge>
                       <span className="text-sm text-muted-foreground">{video.duration}</span>
                     </div>
                   </div>
@@ -206,7 +280,6 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
         </CardContent>
       </Card>
 
-      {/* Quizzes Section */}
       <Card>
         <CardHeader>
           <CardTitle>Quizzes Completed</CardTitle>
@@ -245,17 +318,16 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
             </div>
             <div>
               <Label htmlFor="quiz-category">Category</Label>
-              <Select value={quizCategory} onValueChange={setQuizCategory}>
+              <Select value={quizCategory} onValueChange={setQuizCategory} disabled={loading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder={loading ? "Loading categories..." : "Select category"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="frontend">Frontend Development</SelectItem>
-                  <SelectItem value="backend">Backend Development</SelectItem>
-                  <SelectItem value="database">Database</SelectItem>
-                  <SelectItem value="devops">DevOps</SelectItem>
-                  <SelectItem value="design">UI/UX Design</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.value}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -275,7 +347,7 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
                   <div className="flex-1">
                     <p className="font-medium">{quiz.title}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline">{quiz.category}</Badge>
+                      <Badge variant="outline">{getCategoryName(quiz.category)}</Badge>
                       <span className="text-sm text-muted-foreground">
                         Score: {quiz.score}/{quiz.totalQuestions} (
                         {Math.round((quiz.score / quiz.totalQuestions) * 100)}%)
@@ -292,7 +364,6 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
         </CardContent>
       </Card>
 
-      {/* Notes Section */}
       <Card>
         <CardHeader>
           <CardTitle>Additional Notes</CardTitle>
@@ -308,7 +379,6 @@ export default function DailyReportForm({ selectedStudent, students }: DailyRepo
         </CardContent>
       </Card>
 
-      {/* Submit Button */}
       <div className="flex justify-end">
         <Button onClick={submitReport} size="lg" className="min-w-32">
           <Save className="w-4 h-4 mr-2" />

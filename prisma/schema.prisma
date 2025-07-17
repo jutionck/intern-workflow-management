@@ -1,0 +1,167 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for both admins and students
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  name        String
+  role        Role     @default(STUDENT)
+  department  String?
+  supervisor  String?
+  status      Status   @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  dailyReports DailyReport[]
+  videoEntries VideoEntry[]
+  quizEntries  QuizEntry[]
+  workflows    WorkflowAssignment[]
+
+  @@map("users")
+}
+
+// Daily reports submitted by students
+model DailyReport {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoEntries VideoEntry[]
+  quizEntries  QuizEntry[]
+
+  @@map("daily_reports")
+}
+
+// Video learning entries
+model VideoEntry {
+  id             String  @id @default(cuid())
+  title          String
+  duration       String
+  category       String
+  userId         String
+  dailyReportId  String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyReport DailyReport? @relation(fields: [dailyReportId], references: [id], onDelete: SetNull)
+
+  @@map("video_entries")
+}
+
+// Quiz completion entries
+model QuizEntry {
+  id             String  @id @default(cuid())
+  title          String
+  score          Int
+  totalQuestions Int
+  category       String
+  userId         String
+  dailyReportId  String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyReport DailyReport? @relation(fields: [dailyReportId], references: [id], onDelete: SetNull)
+
+  @@map("quiz_entries")
+}
+
+// Workflow definitions
+model Workflow {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String
+  dueDate     DateTime?
+  assignedBy  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tasks       WorkflowTask[]
+  assignments WorkflowAssignment[]
+
+  @@map("workflows")
+}
+
+// Individual tasks within workflows
+model WorkflowTask {
+  id             String      @id @default(cuid())
+  workflowId     String
+  title          String
+  type           TaskType
+  completed      Boolean     @default(false)
+  score          Int?
+  totalQuestions Int?
+  duration       String?
+  order          Int         @default(0)
+  createdAt      DateTime    @default(now())
+
+  // Relations
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@map("workflow_tasks")
+}
+
+// Assignment of workflows to users
+model WorkflowAssignment {
+  id         String         @id @default(cuid())
+  workflowId String
+  userId     String
+  status     WorkflowStatus @default(NOT_STARTED)
+  startedAt  DateTime?
+  completedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  // Relations
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, userId])
+  @@map("workflow_assignments")
+}
+
+// Enums
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  COMPLETED
+}
+
+enum TaskType {
+  VIDEO
+  QUIZ
+}
+
+enum WorkflowStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}

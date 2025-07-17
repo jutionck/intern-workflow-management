@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle, Circle, Clock, Target, Calendar, Users } from "lucide-react"
+import { workflowService, Workflow as ServiceWorkflow, WorkflowTask as ServiceWorkflowTask } from "@/services/workflow.service"
 
 interface WorkflowTask {
   id: string
@@ -45,67 +46,26 @@ interface WorkflowTrackerProps {
 
 export default function WorkflowTracker({ selectedStudent, students }: WorkflowTrackerProps) {
   const [activeTab, setActiveTab] = useState("active")
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Mock workflow data
-  const workflows: Workflow[] = [
-    {
-      id: "1",
-      title: "Frontend Development Fundamentals",
-      description: "Complete introduction to HTML, CSS, and JavaScript basics",
-      category: "frontend",
-      status: "in-progress",
-      dueDate: "2025-01-25",
-      assignedBy: "John Smith",
-      completedTasks: 5,
-      totalTasks: 8,
-      tasks: [
-        { id: "1", title: "HTML Basics Video", type: "video", completed: true, duration: "30 min" },
-        { id: "2", title: "HTML Quiz", type: "quiz", completed: true, score: 9, totalQuestions: 10 },
-        { id: "3", title: "CSS Fundamentals Video", type: "video", completed: true, duration: "45 min" },
-        { id: "4", title: "CSS Quiz", type: "quiz", completed: true, score: 8, totalQuestions: 10 },
-        { id: "5", title: "JavaScript Introduction Video", type: "video", completed: true, duration: "60 min" },
-        { id: "6", title: "JavaScript Variables Quiz", type: "quiz", completed: false },
-        { id: "7", title: "JavaScript Functions Video", type: "video", completed: false, duration: "40 min" },
-        { id: "8", title: "JavaScript Functions Quiz", type: "quiz", completed: false },
-      ],
-    },
-    {
-      id: "2",
-      title: "React Development Path",
-      description: "Learn React fundamentals and build your first components",
-      category: "frontend",
-      status: "not-started",
-      dueDate: "2025-02-15",
-      assignedBy: "Sarah Johnson",
-      completedTasks: 0,
-      totalTasks: 6,
-      tasks: [
-        { id: "9", title: "React Introduction Video", type: "video", completed: false, duration: "50 min" },
-        { id: "10", title: "React Basics Quiz", type: "quiz", completed: false },
-        { id: "11", title: "Components & Props Video", type: "video", completed: false, duration: "45 min" },
-        { id: "12", title: "Components Quiz", type: "quiz", completed: false },
-        { id: "13", title: "State & Events Video", type: "video", completed: false, duration: "55 min" },
-        { id: "14", title: "State Management Quiz", type: "quiz", completed: false },
-      ],
-    },
-    {
-      id: "3",
-      title: "Database Fundamentals",
-      description: "Understanding databases, SQL, and data modeling",
-      category: "database",
-      status: "completed",
-      dueDate: "2025-01-10",
-      assignedBy: "Mike Davis",
-      completedTasks: 4,
-      totalTasks: 4,
-      tasks: [
-        { id: "15", title: "Database Concepts Video", type: "video", completed: true, duration: "40 min" },
-        { id: "16", title: "Database Quiz", type: "quiz", completed: true, score: 9, totalQuestions: 12 },
-        { id: "17", title: "SQL Basics Video", type: "video", completed: true, duration: "50 min" },
-        { id: "18", title: "SQL Practice Quiz", type: "quiz", completed: true, score: 10, totalQuestions: 12 },
-      ],
-    },
-  ]
+  useEffect(() => {
+    const fetchWorkflows = async () => {
+      try {
+        setLoading(true)
+        const userId = selectedStudent === "all" ? undefined : selectedStudent
+        const response = await workflowService.getWorkflows(userId)
+        setWorkflows(response.workflows || [])
+      } catch (error) {
+        console.error('Failed to fetch workflows:', error)
+        setWorkflows([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchWorkflows()
+  }, [selectedStudent])
 
   const currentStudent = selectedStudent === "all" ? null : students.find((s) => s.id === selectedStudent)
   const isAllStudents = selectedStudent === "all"
@@ -218,7 +178,7 @@ export default function WorkflowTracker({ selectedStudent, students }: WorkflowT
                   <div key={task.id} className="flex items-center gap-2 text-sm">
                     <Circle className="w-4 h-4 text-gray-400" />
                     <span>{task.title}</span>
-                    <Badge variant="outline" size="sm">
+                    <Badge variant="outline">
                       {task.type}
                     </Badge>
                   </div>

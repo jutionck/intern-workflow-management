@@ -26,23 +26,22 @@ interface StudentDashboardProps {
 
 export default function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const [activeTab, setActiveTab] = useState("dashboard")
+  const [loading, setLoading] = useState(false)
 
-  // Mock data for student dashboard
   const todayStats = {
-    videosWatched: 3,
-    quizzesCompleted: 2,
-    averageScore: 85,
-    timeSpent: "4.5 hours",
+    videosWatched: 0,
+    quizzesCompleted: 0,
+    averageScore: 0,
+    timeSpent: "0 hours",
   }
 
   const weeklyProgress = {
-    videosTarget: 15,
-    videosCompleted: 12,
-    quizzesTarget: 10,
-    quizzesCompleted: 8,
+    videosTarget: 0,
+    videosCompleted: 0,
+    quizzesTarget: 0,
+    quizzesCompleted: 0,
   }
 
-  // Create a mock students array with just the current user for compatibility
   const students = [
     {
       id: user.id,
@@ -51,7 +50,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       department: user.department || "Unknown",
       startDate: "2025-01-01",
       supervisor: user.supervisor || "Unknown",
-      status: user.status || "active",
+      status: (user.status || "active") as "active" | "inactive" | "completed",
     },
   ]
 

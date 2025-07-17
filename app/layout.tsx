@@ -24,6 +24,9 @@ export const metadata: Metadata = {
       url: 'https://github.com/jutionck',
     },
   ],
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

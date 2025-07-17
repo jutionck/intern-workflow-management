@@ -20,6 +20,11 @@ interface Student {
   startDate: string
   supervisor: string
   status: "active" | "inactive" | "completed"
+  stats?: {
+    videosWatched: number
+    quizzesCompleted: number
+    averageScore: number
+  }
 }
 
 interface ReportGeneratorProps {
@@ -51,28 +56,26 @@ export default function ReportGenerator({ students }: ReportGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedReport, setGeneratedReport] = useState<any>(null)
 
-  // Mock report data
-  const generateMockReportData = (): ReportData[] => {
+  const generateReportData = (): ReportData[] => {
     return students.map((student) => ({
       student,
-      videosWatched: Math.floor(Math.random() * 20) + 5,
-      quizzesCompleted: Math.floor(Math.random() * 15) + 3,
-      averageScore: Math.floor(Math.random() * 30) + 70,
-      timeSpent: `${Math.floor(Math.random() * 40) + 10} hours`,
-      completionRate: Math.floor(Math.random() * 40) + 60,
-      lastActivity: `${Math.floor(Math.random() * 7) + 1} days ago`,
-      workflowsCompleted: Math.floor(Math.random() * 5) + 1,
-      totalWorkflows: Math.floor(Math.random() * 3) + 3,
+      videosWatched: student.stats?.videosWatched || 0,
+      quizzesCompleted: student.stats?.quizzesCompleted || 0,
+      averageScore: student.stats?.averageScore || 0,
+      timeSpent: "0 hours",
+      completionRate: 0,
+      lastActivity: "No activity",
+      workflowsCompleted: 0,
+      totalWorkflows: 0,
     }))
   }
 
   const handleGenerateReport = async () => {
     setIsGenerating(true)
 
-    // Simulate report generation delay
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
-    const reportData = generateMockReportData()
+    const reportData = generateReportData()
     const filteredData =
       selectedStudent === "all" ? reportData : reportData.filter((d) => d.student.id === selectedStudent)
 
@@ -246,13 +249,21 @@ export default function ReportGenerator({ students }: ReportGeneratorProps) {
               <div className="space-y-2">
                 <Label>Report Options</Label>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="include-charts" checked={includeCharts} onCheckedChange={setIncludeCharts} />
+                  <Checkbox 
+                    id="include-charts" 
+                    checked={includeCharts} 
+                    onCheckedChange={(checked) => setIncludeCharts(checked === true)} 
+                  />
                   <Label htmlFor="include-charts" className="text-sm">
                     Include Charts & Graphs
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="include-details" checked={includeDetails} onCheckedChange={setIncludeDetails} />
+                  <Checkbox 
+                    id="include-details" 
+                    checked={includeDetails} 
+                    onCheckedChange={(checked) => setIncludeDetails(checked === true)} 
+                  />
                   <Label htmlFor="include-details" className="text-sm">
                     Include Detailed Breakdown
                   </Label>
